@@ -1,9 +1,4 @@
-import os
 from time import sleep
-import random
-import time
-import pyotp
-from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
@@ -12,14 +7,8 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
-from datetime import datetime
-from docx import Document
-from docx2pdf import convert
-import logging
-from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
-import pyautogui
+import pandas as pd
 
 def configurar_driver():
     try:
@@ -46,8 +35,11 @@ def configurar_driver():
 def acessar_dental_cremer(driver):
     try:
         driver.get("https://www.dentalcremer.com.br/")
-        sleep(5)
+
+        sleep(3)
+
         try:
+
             btn_aceitar_cookies = WebDriverWait(driver, 20).until(
                 EC.presence_of_element_located((By.XPATH, '//*[@id="onetrust-accept-btn-handler"]'))
             )
@@ -62,19 +54,64 @@ def acessar_dental_cremer(driver):
 
 def pesquisar_itens(driver, lista_itens):
     try:
+        menores_precos = []
         for item in lista_itens:
 
             input_busca = WebDriverWait(driver, 20).until(
                 EC.presence_of_element_located((By.XPATH, '//*[@id="search"]'))
             )  
             input_busca.clear()
-            input_busca.send_keys(item)
+            input_busca.send_keys(item["Descricao"])
             input_busca.send_keys(Keys.ENTER)
 
-        return True
+            select_numero_itens = WebDriverWait(driver, 20).until(
+                EC.presence_of_element_located((By.XPATH, '//*[@id="limiter"]'))
+            )
+            select = Select(select_numero_itens)
+            options = select.options
+            select.select_by_index(len(options) - 1)
+
+            menores_precos = orcar_item(driver, menores_precos)
+
+        return True, menores_precos
 
     except Exception as e:
         print(f"Erro ao pesquisar itens: {str(e)}")
+        return False, menores_precos
+
+def orcar_item(driver, menores_precos):
+    try:
+        lista_ordenada = WebDriverWait(driver, 20).until(
+            EC.presence_of_element_located((By.XPATH, '//*[@id="linx-search"]/div[2]/div[3]/div[1]/div[1]/div[3]/ol'))
+        )
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_all_elements_located((By.CLASS_NAME, "product-item"))
+        )
+        items = lista_ordenada.find_elements(By.CLASS_NAME, "product-item")
+        menor_preco = float('inf')
+        item_menor_preco = None
+
+        for item in items:
+            try:
+                preco_texto = item.find_element(By.CLASS_NAME, "product-item-price").text
+                preco = float(preco_texto.replace('R$', '').replace('.', '').replace(',', '.').strip())
+                
+                if preco < menor_preco:
+                    menor_preco = preco
+                    item_menor_preco = item
+            except:
+                continue
+
+        if item_menor_preco:
+            print(f"Menor preço encontrado no item: R$ {menor_preco:.2f}")
+            menores_precos.append(menor_preco)
+            print(f"O item de menor preco eh: {menores_precos}")
+
+        return menores_precos
+    
+    except Exception as e:
+        print(f"Erro ao orcar item: {str(e)}")
+
 
 def main():
 
@@ -86,9 +123,14 @@ def main():
     if not acessar_dental_cremer(driver):
         return
     
-    lista_itens = ["gaze", "luva p", "lamina de bisturi 15"]
+    lista_itens = pd.read_csv("lista.csv")
+    print("Colunas do arquivo:", lista_itens.columns)
 
-    if not pesquisar_itens(driver, lista_itens):
+    status, menores_precos =  pesquisar_itens(driver, lista_itens)
+
+    print(menores_precos)
+
+    if not status:
         return
 
 
