@@ -61,7 +61,7 @@ def pesquisar_itens(driver, lista_itens):
                 EC.presence_of_element_located((By.XPATH, '//*[@id="search"]'))
             )  
             input_busca.clear()
-            input_busca.send_keys(item["Descricao"])
+            input_busca.send_keys(item)
             input_busca.send_keys(Keys.ENTER)
 
             select_numero_itens = WebDriverWait(driver, 20).until(
@@ -112,7 +112,6 @@ def orcar_item(driver, menores_precos):
     except Exception as e:
         print(f"Erro ao orcar item: {str(e)}")
 
-
 def main():
 
     driver = configurar_driver()
@@ -123,8 +122,8 @@ def main():
     if not acessar_dental_cremer(driver):
         return
     
-    lista_itens = pd.read_csv("lista.csv")
-    print("Colunas do arquivo:", lista_itens.columns)
+    lista_itens = ["sugador descartável", "luva p", "gaze estéril"]
+    #print("Colunas do arquivo:", lista_itens.columns)
 
     status, menores_precos =  pesquisar_itens(driver, lista_itens)
 
